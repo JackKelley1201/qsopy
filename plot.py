@@ -13,30 +13,28 @@ Jack Kelley
 FUNCTIONS ------------------------------------------------------------------------------------------------------------
 '''
 
-'''
-Sets the file to be used. 
-TODO - make this take an input so the GUI can accept a file input
-'''
+
 def set_object_file():
+    """
+    Sets the file to be used.
+    TODO - make this take an input so the GUI can accept a file input
+    """
     file = '108_11_03_26_31_41_15..txt'
     return file
 
-'''
-Gets the name of the object from file name
-'''
-
 
 def parse_shooter_number():
+    """
+    Gets the name of the object from file name
+    """
     file = set_object_file()
     return file[:-5]
 
 
-'''
-Creates plot from text data file.
-'''
-
-
 def plot_object():
+    """
+    Creates plot from text data file.
+    """
     data = pd.read_csv('108_11_03_26_31_41_15..txt', header=None, delim_whitespace=True)
     data.columns = ('Observed Wavelength', 'Flux', 'Flux Error')
     # get all redshifts
@@ -53,8 +51,25 @@ def plot_object():
     rest_wavelength = data['Observed Wavelength'].map(lambda x: x / (1 + z))
     data['Rest Wavelength'] = rest_wavelength
 
-    # create axes and figure objects
-    figure, axes = plt.subplots()
+    # create figure and axis
+    fig, ax = plt.subplots()
+    fig.set_size_inches(14, 7)
+    plt.tight_layout()
 
-    axes.plot(data[0], data[1])
-    axes.secondary_xaxis
+    # plot flux and error
+    ax.plot(data['Observed Wavelength'], data['Flux'], linewidth=0.5)
+    ax.plot(data['Observed Wavelength'], data['Flux Error'], linewidth=1, color='red')
+
+    # rest wave axis on top
+    rest_axis = ax.secondary_xaxis('top', functions=(lambda x: x / (1 + z), lambda x: x / (1 + z)))
+    rest_axis.set_xlabel('Rest Wavelength')
+
+    # set plot limits
+    ax.set_xlim(data['Observed Wavelength'].min(), data['Observed Wavelength'].max())
+    ax.set_ylim(data['Flux'].min() - 1, data['Flux'].max() + 1)
+
+    plt.legend()
+    plt.show()
+
+
+plot_object()
