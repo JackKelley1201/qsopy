@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import os
-from trough_identify import identify_absorption
+import trough_identify
 
 """
 Functions for generating the plot from text data files.
@@ -31,6 +31,14 @@ def parse_shooter_number():
     file = set_object_file()
     return file[:-5]
 
+def get_doublet_dict(file='linelist.txt'):
+    """
+    :param file: 3 column data file with doublet distances
+    :return: dataframe with doublet data
+    """
+    doublets = pd.read_csv(file, header=None, delim_whitespace=True)
+    doublets.columns = ('Doublet', 'Wavelength', 'Unused')
+
 
 def plot_object():
     """
@@ -44,9 +52,6 @@ def plot_object():
     # get specific redshift
     object_num = parse_shooter_number()
 
-    # find troughs
-    troughs = identify_absorption(data['Flux'], 2)
-
     # From all_redshifts pulls column 3, row corresponding to object num, all characters except ending ')'.
     # Converts to int.
     z = float(all_redshifts[3][(int(object_num[:3]) - 100)][:-1])
@@ -55,14 +60,17 @@ def plot_object():
     rest_wavelength = data['Observed Wavelength'].map(lambda x: x / (1 + z))
     data['Rest Wavelength'] = rest_wavelength
 
+    # find troughs
+    troughs = trough_identify.identify_troughs(data, 1.3, z)
+
     # create figure and axis
     fig, ax = plt.subplots()
     fig.set_size_inches(14, 7)
     plt.tight_layout()
 
     # plot flux and error
-    ax.plot(data['Observed Wavelength'], data['Flux'], linewidth=0.5)
-    ax.plot(data['Observed Wavelength'], data['Flux Error'], linewidth=1, color='red')
+    ax.step(data['Observed Wavelength'], data['Flux'], linewidth=0.5, where="mid")
+    ax.step(data['Observed Wavelength'], data['Flux Error'], linewidth=1, color='red', where="mid")
 
     # rest wave axis on top
     rest_axis = ax.secondary_xaxis('top', functions=(lambda x: x / (1 + z), lambda x: x / (1 + z)))
