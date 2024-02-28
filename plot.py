@@ -84,9 +84,6 @@ def plot_object():
     ax.vlines(data['Observed Wavelength'].iloc[troughs[0]], 0, data['Flux'].max(), color='purple')
 
     # plot matched systems
-    """
-    TODO get the index of the doublets, not the actual value
-    """
     for z in matched:
         for doublet in matched[z]:
             color = np.random.random(3)
