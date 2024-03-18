@@ -172,8 +172,6 @@ def match_civ(passed_data, trough_indexes, redshifts):
     :param: troughs
     :param: redshifts the possible redshifts to search
     :return: the indexes of the MgII doublets
-
-    TODO move the calculation of matching reds outside of the trough loop so it is precomputed.
     """
     # data with wavelengths near MgII emission
     possible_troughs = passed_data['Observed Wavelength'][passed_data['Rest Wavelength'] > 1000]
