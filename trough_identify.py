@@ -134,6 +134,7 @@ def theoretical_doublets(passed_data, confirmed_z, doublet):
 
     search_range = None
 
+    # use different ranges for doublets depending on input doublet so there are no overlaps
     match doublet:
         case "MgII":
             search_range = range(1, len(doublets))
