@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="Black">
+    <option name="executionMode" value="BINARY" />
+    <option name="pathToExecutable" value="C:\Users\jackk\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\Scripts\black.exe" />
+    <option name="sdkUUID" value="d4b7f2fd-758a-4d72-a514-38f9405953be" />
+  </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (qsopy)" project-jdk-type="Python SDK" />
 </project>
