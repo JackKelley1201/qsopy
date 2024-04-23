@@ -211,11 +211,15 @@ def plot_object():
     data["Rest Wavelength"] = rest_wavelength
 
     # find troughs
-    troughs = trough_identify.identify_troughs(data, 1.9, 50)
+    troughs = trough_identify.identify_troughs(data, 2, 50)
 
     all_matched_doublets = {}
+    doublets_in_systems = {}
     for i in range(len(trough_identify.doublets)):
         all_matched_doublets[i] = trough_identify.match_doublets(data, troughs[0], i, all_matched_doublets, z)
+
+        for redshift in all_matched_doublets[i]:
+           doublets_in_systems[redshift] = trough_identify.match_confirmed_systems(data, redshift, i, troughs[0])
 
     # create figure and axis
     fig, ax = plt.subplots()
