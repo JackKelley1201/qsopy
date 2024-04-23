@@ -34,7 +34,6 @@ def parse_shooter_number():
 
 
 def pick_color():
-    # color=plt.cm.viridis(np.linspace(0, 1, 25))
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=plt.cm.seismic(np.linspace(0, 1, 25)))
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
@@ -43,14 +42,14 @@ def pick_color():
     return colors
 
 
-def plot_systems(colors, ax, data, doublet_number, all_matched_doublets, quasar_redshift, theoretical_locations=False):
+def plot_systems(colors, ax, data, doublet_number, all_matched_doublets, troughs, theoretical_locations=False):
     """
     :param colors: the plot colors enumerator
     :param ax: the plot axes
     :param data: the quasar data
     :param doublet_number: the number of the doublets in the doublets dataframe in trough_identify
     :param all_matched_doublets: the set of detected doublets
-    :param quasar_redshift: the redshift of the quasar
+    :param troughs: the identified troughs
     :param theoretical_locations: theoretical extrapolated locations of other doublets
     :return:
 
@@ -98,26 +97,27 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets, quasar_
             rotation=270,
         )
 
-        if theoretical_locations:
+        """if theoretical_locations:
             # find theoretical doublets
+
             # extract confirmed redshifts from dictionary and get right one
             redshift = float(matched_doublet)
 
-            theoretical_doublets = trough_identify.theoretical_doublets(data, redshift, doublet_number, quasar_redshift)
+            theoretical_doublets = trough_identify.theoretical_doublets(data, redshift, troughs, doublet_number)
 
             if len(theoretical_doublets[redshift]) == 0:
                 continue
 
             for theoretical_doublet in theoretical_doublets[redshift]:
                 ax.vlines(
-                    data["Observed Wavelength"].loc[theoretical_doublet[0]],
+                    data["Observed Wavelength"].iloc[theoretical_doublet[0]],
                     0,
                     data["Flux"].max(),
                     linewidth=0.5,
                 )
                 # plot red
                 ax.vlines(
-                    data["Observed Wavelength"].loc[theoretical_doublet[1]],
+                    data["Observed Wavelength"].iloc[theoretical_doublet[1]],
                     0,
                     data["Flux"].max(),
                     color=color,
@@ -130,15 +130,15 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets, quasar_
                     + theoretical_doublet[2]
                     + " Unconfirmed",
                     xy=(
-                        data["Observed Wavelength"].loc[theoretical_doublet[1]],
+                        data["Observed Wavelength"].iloc[theoretical_doublet[1]],
                         18,
                     ),
                     xytext=(
-                        data["Observed Wavelength"].loc[theoretical_doublet[1]] + 5,
+                        data["Observed Wavelength"].iloc[theoretical_doublet[1]] + 5,
                         18,
                     ),
                     rotation=270,
-                )
+                )"""
 
 
 def plot_quasar_system(ax, data, quasar_redshift):
@@ -211,12 +211,14 @@ def plot_object():
     data["Rest Wavelength"] = rest_wavelength
 
     # find troughs
-    troughs = trough_identify.identify_troughs(data, 1.9, 50)
+    troughs = trough_identify.identify_troughs(data, 2, 50)
 
     all_matched_doublets = {}
     for i in range(len(trough_identify.doublets)):
-        all_matched_doublets[i] = trough_identify.match_doublets(data, troughs[0], i, all_matched_doublets, z)
+        all_matched_doublets[i] = trough_identify.match_first_doublets(data, troughs[0], i, all_matched_doublets, z)
 
+        """for redshift in all_matched_doublets[i]:
+            trough_identify.theoretical_doublets(data, redshift, troughs[0], i, all_matched_doublets)"""
     # create figure and axis
     fig, ax = plt.subplots()
     fig.set_size_inches(14, 7)
@@ -247,7 +249,7 @@ def plot_object():
 
     # plot matched systems
     for i in range(0, 4):
-        plot_systems(colors, ax, data, i, all_matched_doublets, z, theoretical_locations=False)
+        plot_systems(colors, ax, data, i, all_matched_doublets, troughs[0], theoretical_locations=True)
 
     # plot_quasar_system(ax, data, z)
 

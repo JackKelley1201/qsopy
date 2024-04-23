@@ -21,9 +21,6 @@ def identify_troughs(passed_data, prominence, wlen):
     """
     Flips the data and identifies the troughs. Because the dataframe no longer starts at 0, add the first index
     to shift the indexes of the returned values by the same amount.
-
-    TODO: set the min distance to allow a next peak to be greater than the maximum distance between the farthest
-    doublet, then do a loop on each peak to find if there is another one with the distance equal to a doublet distance.
     """
 
     flux_data = passed_data["Flux"].loc[passed_data["Rest Wavelength"] > 1216]
@@ -38,14 +35,14 @@ def identify_troughs(passed_data, prominence, wlen):
 
 def determine_possible_redshifts(passed_data, trough_indexes, doublet_number, quasar_redshift):
     """
-    Pass magnesium troughs to start with
-    :param: passed_data the spectrum dataset
-    :param: troughs the troughs that will be used to determine redshifts
-    :param: element this is the index of the type of doublet from the doublets dataframe,
+    Makes a list of possible redshifts
+    :param passed_data: the spectrum dataset
+    :param trough_indexes: the troughs that will be used to determine redshifts
+    :param doublet_number: this is the index of the type of doublet from the doublets dataframe,
      so when trying to find MgII redshifts use 0, CIV redshifts use 3, etc.
     :param quasar_redshift: the redshift of the quasar, needed to stop adding when the redshift is greater than
      the quasar redshift
-    :return:
+    :return: a list of possible redshifts for that doublet
     """
 
     # Lyman cutoff
@@ -73,50 +70,54 @@ def determine_possible_redshifts(passed_data, trough_indexes, doublet_number, qu
     return intervening_z
 
 
-def theoretical_doublets(passed_data, confirmed_z, doublet_number, quasar_redshift):
+def theoretical_doublets(passed_data, confirmed_z, trough_indexes, doublet_number, all_matched_doublets):
     """
     Finds where we theoretically would expect to find the other doublets given the redshift of an extant system
 
     :param passed_data: the spectrum dataset
     :param confirmed_z: the redshift of the confirmed systems
+    :param trough_indexes: the identified troughs
     :param doublet_number: the number of the doublet in the doublets dataframe
-    :param quasar_redshift: the redshift of the quasar
     :return: the theoretical locations of other doublets corresponding to the redshift of an extant system
 
     TODO: Look at why adding the quasar redshift give one correct iron but not the other
     """
-    theoretical = {}
 
-    # search all doublets except for the base doublet
-    # note: this is very ugly, but it is the best way to concatenate two lists because they are their own objects
+    # data with wavelengths near MgII emission
+    possible_troughs = passed_data["Observed Wavelength"][
+        passed_data["Rest Wavelength"] > 500
+        ]
+    # cutoff trough indexes to minimum possible_mg2
+    trough_indexes = trough_indexes[trough_indexes >= possible_troughs.index[0]]
+    possible_troughs = possible_troughs.loc[trough_indexes]
+    possible_troughs = possible_troughs.reset_index()
+
+    # get the search range for doublet numbers
     search_range = chain(range(0, doublet_number), range(doublet_number + 1, len(doublets)))
 
-    theoretical[confirmed_z] = []
+    # get each trough and compare to the expected, if they match attach them to that redshift
+    for i in range(len(possible_troughs)):
+        for searched_doublet_number in range(len(doublets)):
+            # calculate where we would expect to see a doublet for each redshift
+            potential_matches = [doublets["Blue"].iloc[searched_doublet_number] * (confirmed_z + 1),
+                                 doublets["Red"].iloc[searched_doublet_number] * (confirmed_z + 1)]
+            # unpack to get the separate graph index (x-value) and observed wavelength
+            blue_index = possible_troughs["index"].iloc[i]
+            observed_wavelength = possible_troughs["Observed Wavelength"].iloc[i]
+            # only look at troughs redder than the current blue one to save time
+            redder_troughs = possible_troughs[possible_troughs["index"] > blue_index]
 
-    for i in search_range:
-        temp_doublet_name = doublets["Doublet"].iloc[i]
-        temp_blue = float(doublets["Blue"].iloc[i] * (confirmed_z + 1))
-        temp_red = float(doublets["Red"].iloc[i] * (confirmed_z + 1))
-
-        # find the closest data index for plotting, does this by subtracting the expected and getting the min extant
-        # index, equivalent to finding the closest matching index to the expected value
-        temp_blue_index = (passed_data["Observed Wavelength"] - temp_blue).abs().idxmin()
-        temp_red_index = (passed_data["Observed Wavelength"] - temp_red).abs().idxmin()
-
-        """
-        Old method:
-        temp_blue_index = passed_data.index[(passed_data["Observed Wavelength"] - temp_blue).abs().idxmin()]
-        temp_red_index = passed_data.index[(passed_data["Observed Wavelength"] - temp_red).abs().idxmin()]
-        """
-
-        # only plot if the doublet could possibly appear on the spectrum
-        if temp_red_index > 0:
-            theoretical[confirmed_z].append((temp_blue_index, temp_red_index, temp_doublet_name))
-
-    return theoretical
+            # if blue is close to potential blue and red is close to potential red, add the pair as a tuple to
+            if np.isclose(observed_wavelength, potential_matches[0], atol=2.5):
+                for j in range(len(redder_troughs)):
+                    red_index = redder_troughs["index"].iloc[j]
+                    red_observed_wavelength = redder_troughs["Observed Wavelength"].iloc[j]
+                    if np.isclose(red_observed_wavelength, potential_matches[1], atol=2.5):
+                        all_matched_doublets[doublet_number][confirmed_z].append((blue_index,
+                                                                                  red_index, searched_doublet_number))
 
 
-def match_doublets(passed_data, trough_indexes, doublet_number, already_found, z):
+def match_first_doublets(passed_data, trough_indexes, doublet_number, already_found, z):
     """
     Matches all doublets.
 
@@ -134,7 +135,7 @@ def match_doublets(passed_data, trough_indexes, doublet_number, already_found, z
     """
     redshifts = determine_possible_redshifts(passed_data, trough_indexes, doublet_number, z)
 
-    # removed already found redshifts
+    # remove already found redshifts
     already_found_keys = list(already_found)
     for key in already_found_keys:
         already_found_redshifts = list(already_found[key])
@@ -143,11 +144,11 @@ def match_doublets(passed_data, trough_indexes, doublet_number, already_found, z
                 if np.isclose(redshift, already_found_redshift, atol=0.05):
                     del redshift
 
-    # data with wavelengths near MgII emission
+    # remove data with wavelengths in forest
     possible_troughs = passed_data["Observed Wavelength"][
         passed_data["Rest Wavelength"] > 1350
-    ]
-    # cutoff trough indexes to minimum possible_mg2
+        ]
+    # cutoff trough indexes to minimum possible
     trough_indexes = trough_indexes[trough_indexes >= possible_troughs.index[0]]
     possible_troughs = possible_troughs.loc[trough_indexes]
     possible_troughs = possible_troughs.reset_index()
@@ -177,7 +178,7 @@ def match_doublets(passed_data, trough_indexes, doublet_number, already_found, z
                     red_index = redder_troughs["index"].iloc[j]
                     red_observed_wavelength = redder_troughs["Observed Wavelength"].iloc[j]
                     if np.isclose(red_observed_wavelength, potential_matches[z][1], atol=2.5):
-                        tagged_doublets[z] = (index, red_index)
+                        tagged_doublets[z] = [(index, red_index)]
 
     # remove redshifts that have no doublets
     for z in list(tagged_doublets):
