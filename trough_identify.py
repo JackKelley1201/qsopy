@@ -118,6 +118,7 @@ def theoretical_doublets(passed_data, confirmed_z, doublet_number):
 def match_confirmed_systems(passed_data, confirmed_redshift, doublet_number, trough_indexes):
     """
     Takes a confirmed redshift and finds all other doublets with that redshift
+    :param passed_data: the data that the observed wavelengths are pulled from
     :param confirmed_redshift: the redshift that is used to find other doublets
     :param doublet_number: the number of the doublet that was already found
     :param trough_indexes: the troughs to search
@@ -149,11 +150,11 @@ def match_confirmed_systems(passed_data, confirmed_redshift, doublet_number, tro
             redder_troughs = possible_troughs[possible_troughs["index"] > blue_index]
 
             # if blue is close to potential blue and red is close to potential red, add the pair as a tuple to
-            if np.isclose(observed_wavelength, potential_matches[0], atol=2.5):
+            if np.isclose(observed_wavelength, potential_matches[0], atol=15):
                 for j in range(len(redder_troughs)):
                     red_index = redder_troughs["index"].iloc[j]
                     red_observed_wavelength = redder_troughs["Observed Wavelength"].iloc[j]
-                    if np.isclose(red_observed_wavelength, potential_matches[1], atol=2.5):
+                    if np.isclose(red_observed_wavelength, potential_matches[1], atol=15):
                         tagged_doublets.append((blue_index, red_index, searched_doublet))
 
     return tagged_doublets
@@ -218,7 +219,7 @@ def match_doublets(passed_data, trough_indexes, doublet_number, already_found, z
                     red_index = redder_troughs["index"].iloc[j]
                     red_observed_wavelength = redder_troughs["Observed Wavelength"].iloc[j]
                     if np.isclose(red_observed_wavelength, potential_matches[z][1], atol=2.5):
-                        tagged_doublets[z] = (blue_index, red_index)
+                        tagged_doublets[z] = [(blue_index, red_index)]
 
     # remove redshifts that have no doublets
     for z in list(tagged_doublets):

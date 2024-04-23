@@ -35,7 +35,7 @@ def parse_shooter_number():
 
 def pick_color():
     # color=plt.cm.viridis(np.linspace(0, 1, 25))
-    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=plt.cm.seismic(np.linspace(0, 1, 25)))
+    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=plt.cm.viridis(np.linspace(0, 1, 5)))
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
     colors = enumerate(colors)
@@ -43,7 +43,7 @@ def pick_color():
     return colors
 
 
-def plot_systems(colors, ax, data, doublet_number, all_matched_doublets, quasar_redshift, theoretical_locations=False):
+def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
     """
     :param colors: the plot colors enumerator
     :param ax: the plot axes
@@ -60,26 +60,29 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets, quasar_
     """
     matched_doublets = all_matched_doublets[doublet_number]
     for matched_doublet in matched_doublets:
+
+        main_doublet = matched_doublets[matched_doublet][0]
+        secondary_doublets = matched_doublets[matched_doublet][1]
+
         color = next(colors)[1]
 
         # plot blue
         ax.vlines(
-            data["Observed Wavelength"].loc[matched_doublets[matched_doublet][0]],
+            data["Observed Wavelength"].loc[main_doublet[0]],
             0,
             data["Flux"].max(),
             color=color,
             linewidth=0.8,
-            label=str(np.round(matched_doublet, decimals=3))
-            + trough_identify.doublets["Doublet"].iloc[doublet_number],
+            label=str(np.round(matched_doublet, decimals=3)) + trough_identify.doublets["Doublet"].iloc[doublet_number]
         )
 
         # plot red
         ax.vlines(
-            data["Observed Wavelength"].loc[matched_doublets[matched_doublet][1]],
+            data["Observed Wavelength"].loc[main_doublet[1]],
             0,
             data["Flux"].max(),
             color=color,
-            linewidth=0.8,
+            linewidth=0.8
         )
 
         # annotate
@@ -87,58 +90,51 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets, quasar_
             str(np.round(matched_doublet, decimals=3))
             + trough_identify.doublets["Doublet"].loc[doublet_number],
             xy=(
-                data["Observed Wavelength"].loc[matched_doublets[matched_doublet][0]],
+                data["Observed Wavelength"].loc[main_doublet[0]],
                 18,
             ),
             xytext=(
-                data["Observed Wavelength"].loc[matched_doublets[matched_doublet][1]]
+                data["Observed Wavelength"].loc[main_doublet[1]]
                 + 5,
                 18,
             ),
-            rotation=270,
+            rotation=270
         )
 
-        if theoretical_locations:
-            # find theoretical doublets
-            # extract confirmed redshifts from dictionary and get right one
-            redshift = float(matched_doublet)
+        for secondary in secondary_doublets:
+            # plot blue
+            ax.vlines(
+                data["Observed Wavelength"].loc[secondary[0]],
+                0,
+                data["Flux"].max(),
+                color=color,
+                linewidth=0.8
+            )
 
-            theoretical_doublets = trough_identify.theoretical_doublets(data, redshift, doublet_number, quasar_redshift)
+            # plot red
+            ax.vlines(
+                data["Observed Wavelength"].loc[secondary[1]],
+                0,
+                data["Flux"].max(),
+                color=color,
+                linewidth=0.8
+            )
 
-            if len(theoretical_doublets[redshift]) == 0:
-                continue
-
-            for theoretical_doublet in theoretical_doublets[redshift]:
-                ax.vlines(
-                    data["Observed Wavelength"].loc[theoretical_doublet[0]],
-                    0,
-                    data["Flux"].max(),
-                    linewidth=0.5,
-                )
-                # plot red
-                ax.vlines(
-                    data["Observed Wavelength"].loc[theoretical_doublet[1]],
-                    0,
-                    data["Flux"].max(),
-                    color=color,
-                    linewidth=0.5,
-                )
-
-                ax.annotate(
-                    str(np.round(matched_doublet, decimals=3))
-                    + " "
-                    + theoretical_doublet[2]
-                    + " Unconfirmed",
-                    xy=(
-                        data["Observed Wavelength"].loc[theoretical_doublet[1]],
-                        18,
-                    ),
-                    xytext=(
-                        data["Observed Wavelength"].loc[theoretical_doublet[1]] + 5,
-                        18,
-                    ),
-                    rotation=270,
-                )
+            # annotate
+            ax.annotate(
+                str(np.round(matched_doublet, decimals=3))
+                + trough_identify.doublets["Doublet"].loc[secondary[2]],
+                xy=(
+                    data["Observed Wavelength"].loc[secondary[0]],
+                    18
+                ),
+                xytext=(
+                    data["Observed Wavelength"].loc[secondary[1]]
+                    + 5,
+                    18,
+                ),
+                rotation=270
+            )
 
 
 def plot_quasar_system(ax, data, quasar_redshift):
@@ -160,7 +156,7 @@ def plot_quasar_system(ax, data, quasar_redshift):
             0,
             data["Flux"].max(),
             color=color,
-            linewidth=0.6,
+            linewidth=0.6
         )
 
         # plot red
@@ -169,7 +165,7 @@ def plot_quasar_system(ax, data, quasar_redshift):
             0,
             data["Flux"].max(),
             color=color,
-            linewidth=0.6,
+            linewidth=0.6
         )
 
         # annotate
@@ -178,14 +174,14 @@ def plot_quasar_system(ax, data, quasar_redshift):
             + doublet[2],
             xy=(
                 data["Observed Wavelength"].loc[doublet[0]],
-                18,
+                18
             ),
             xytext=(
                 data["Observed Wavelength"].loc[doublet[1]]
                 + 5,
-                18,
+                18
             ),
-            rotation=270,
+            rotation=270
         )
 
 
@@ -194,7 +190,7 @@ def plot_object():
     Creates plot from text data file.
     """
     colors = pick_color()
-    data = pd.read_csv("106_14_41_51_14_20_50..txt", header=None, delim_whitespace=True)
+    data = pd.read_csv("107_14_34_10_53_07_30..txt", header=None, delim_whitespace=True)
     data.columns = ("Observed Wavelength", "Flux", "Flux Error")
     # get all redshifts
     all_redshifts = pd.read_csv("Object_Index.txt", header=None)
@@ -219,7 +215,8 @@ def plot_object():
         all_matched_doublets[i] = trough_identify.match_doublets(data, troughs[0], i, all_matched_doublets, z)
 
         for redshift in all_matched_doublets[i]:
-           doublets_in_systems[redshift] = trough_identify.match_confirmed_systems(data, redshift, i, troughs[0])
+            all_matched_doublets[i][redshift].append(
+                trough_identify.match_confirmed_systems(data, redshift, i, troughs[0]))
 
     # create figure and axis
     fig, ax = plt.subplots()
@@ -251,7 +248,7 @@ def plot_object():
 
     # plot matched systems
     for i in range(0, 4):
-        plot_systems(colors, ax, data, i, all_matched_doublets, z, theoretical_locations=False)
+        plot_systems(colors, ax, data, i, all_matched_doublets)
 
     # plot_quasar_system(ax, data, z)
 
