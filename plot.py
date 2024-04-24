@@ -1,9 +1,14 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from matplotlib.transforms import Bbox
 from scipy import signal
 import os
 import trough_identify
+
+"""
+FIELDS ---------------------------------------------------------------------------------------------------------------
+"""
 
 """
 Functions for generating the plot from text data files.
@@ -14,6 +19,8 @@ Jack Kelley
 """
 FUNCTIONS ------------------------------------------------------------------------------------------------------------
 """
+# List of bounding boxes for annotations to help make sure none of them overlap
+annotation_bounding_boxes = []
 
 
 def set_object_file():
@@ -50,14 +57,13 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
     :param data: the quasar data
     :param doublet_number: the number of the doublets in the doublets dataframe in trough_identify
     :param all_matched_doublets: the set of detected doublets
-    :param quasar_redshift: the redshift of the quasar
-    :param theoretical_locations: theoretical extrapolated locations of other doublets
     :return:
 
     Note: the theoretical doublet structure is a dictionary even though the current implementation does not strictly
     require it. I did this in case later on we want to combine all the theoretical redshifts for something. That is
     why it may look sort of strange/redundant.
     """
+
     matched_doublets = all_matched_doublets[doublet_number]
     for matched_doublet in matched_doublets:
 
@@ -102,7 +108,7 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
         )
 
         for secondary in secondary_doublets:
-            # plot blue
+            # plot line
             ax.vlines(
                 data["Observed Wavelength"].loc[secondary[0]],
                 0,
@@ -111,30 +117,34 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
                 linewidth=0.8
             )
 
-            # plot red
-            ax.vlines(
-                data["Observed Wavelength"].loc[secondary[1]],
-                0,
-                data["Flux"].max(),
-                color=color,
-                linewidth=0.8
-            )
-
             # annotate
+
+            # offset the annotation if there is already an annotation in the same place
+            temp_offset = 0
+            temp_text = ""
+            temp_bounding_box = Bbox.from_bounds(data["Observed Wavelength"].loc[secondary[0]],
+                                                 18, 5, 5)
+            if temp_bounding_box.count_overlaps(annotation_bounding_boxes) != 0:
+                temp_offset += 5
+                temp_text = "--OR-- "
+
             ax.annotate(
-                str(np.round(matched_doublet, decimals=3))
-                + trough_identify.doublets["Doublet"].loc[secondary[2]],
+                temp_text
+                + str(np.round(matched_doublet, decimals=3))
+                + trough_identify.prediction_singlets["Doublet"].loc[secondary[1]]
+                + " Predicted",
                 xy=(
                     data["Observed Wavelength"].loc[secondary[0]],
                     18
                 ),
                 xytext=(
-                    data["Observed Wavelength"].loc[secondary[1]]
+                    data["Observed Wavelength"].loc[secondary[0]]
                     + 5,
-                    18,
+                    18 - temp_offset,
                 ),
                 rotation=270
             )
+            annotation_bounding_boxes.append(temp_bounding_box)
 
 
 def plot_quasar_system(ax, data, quasar_redshift):
@@ -208,10 +218,9 @@ def plot_object():
 
     # find troughs
     troughs = trough_identify.identify_troughs(data, 2)
-    higher_sensitivity_troughs = trough_identify.identify_troughs(data, 1.3, distance=2)
+    higher_sensitivity_troughs = trough_identify.identify_troughs(data, 1.6, distance=2)
 
     all_matched_doublets = {}
-    doublets_in_systems = {}
     for i in range(len(trough_identify.doublets)):
         all_matched_doublets[i] = trough_identify.match_doublets(data, troughs[0], i, all_matched_doublets, z)
 
