@@ -190,7 +190,7 @@ def plot_object():
     Creates plot from text data file.
     """
     colors = pick_color()
-    data = pd.read_csv("107_14_34_10_53_07_30..txt", header=None, delim_whitespace=True)
+    data = pd.read_csv("106_14_41_51_14_20_50..txt", header=None, delim_whitespace=True)
     data.columns = ("Observed Wavelength", "Flux", "Flux Error")
     # get all redshifts
     all_redshifts = pd.read_csv("Object_Index.txt", header=None)
@@ -207,7 +207,8 @@ def plot_object():
     data["Rest Wavelength"] = rest_wavelength
 
     # find troughs
-    troughs = trough_identify.identify_troughs(data, 2, 50)
+    troughs = trough_identify.identify_troughs(data, 2)
+    higher_sensitivity_troughs = trough_identify.identify_troughs(data, 1.3, distance=2)
 
     all_matched_doublets = {}
     doublets_in_systems = {}
@@ -216,7 +217,7 @@ def plot_object():
 
         for redshift in all_matched_doublets[i]:
             all_matched_doublets[i][redshift].append(
-                trough_identify.match_confirmed_systems(data, redshift, i, troughs[0]))
+                trough_identify.match_confirmed_systems(data, redshift, i, higher_sensitivity_troughs[0]))
 
     # create figure and axis
     fig, ax = plt.subplots()

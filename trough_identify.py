@@ -17,7 +17,7 @@ doublets = doublets.sort_values(by="Blue", ascending=False)
 doublets = doublets.reset_index(drop=True)
 
 
-def identify_troughs(passed_data, prominence, wlen):
+def identify_troughs(passed_data, prominence, distance=10):
     """
     Flips the data and identifies the troughs. Because the dataframe no longer starts at 0, add the first index
     to shift the indexes of the returned values by the same amount.
@@ -30,7 +30,7 @@ def identify_troughs(passed_data, prominence, wlen):
     index_shift = flux_data.index[0]  # starting index is the point where rest wavelength is 1216
     flux_data = -flux_data
     smoothed_flux = signal.savgol_filter(flux_data, 8, 4)
-    min_indexes = signal.find_peaks(smoothed_flux, prominence=prominence, distance=10)
+    min_indexes = signal.find_peaks(smoothed_flux, prominence=prominence, distance=distance)
     min_indexes = min_indexes[0] + index_shift
 
     return min_indexes, index_shift
@@ -150,11 +150,11 @@ def match_confirmed_systems(passed_data, confirmed_redshift, doublet_number, tro
             redder_troughs = possible_troughs[possible_troughs["index"] > blue_index]
 
             # if blue is close to potential blue and red is close to potential red, add the pair as a tuple to
-            if np.isclose(observed_wavelength, potential_matches[0], atol=15):
+            if np.isclose(observed_wavelength, potential_matches[0], atol=2):
                 for j in range(len(redder_troughs)):
                     red_index = redder_troughs["index"].iloc[j]
                     red_observed_wavelength = redder_troughs["Observed Wavelength"].iloc[j]
-                    if np.isclose(red_observed_wavelength, potential_matches[1], atol=15):
+                    if np.isclose(red_observed_wavelength, potential_matches[1], atol=2):
                         tagged_doublets.append((blue_index, red_index, searched_doublet))
 
     return tagged_doublets
@@ -177,6 +177,9 @@ def match_doublets(passed_data, trough_indexes, doublet_number, already_found, z
     :return: the indexes of the MgII doublets
     """
     redshifts = determine_possible_redshifts(passed_data, trough_indexes, doublet_number, z)
+
+    # remove redshifts less than 0.7
+    redshifts = [redshift for redshift in redshifts if redshift > 0.7]
 
     # removed already found redshifts
     already_found_keys = list(already_found)
