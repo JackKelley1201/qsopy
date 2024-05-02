@@ -18,8 +18,8 @@ doublets = doublets.reset_index(drop=True)
 
 prediction_singlets = pd.read_csv("line_list_large.txt", header=None, delim_whitespace=True)
 prediction_singlets = prediction_singlets.drop(2, axis=1)
-prediction_singlets.columns = ("Doublet", "Wavelength")
-prediction_singlets = prediction_singlets.sort_values(by="Wavelength", ascending=False)
+prediction_singlets.columns = ("Doublet", "Wavelength", "Is Doublet")
+prediction_singlets = prediction_singlets.sort_values(by="Wavelength", ascending=True)
 prediction_singlets = prediction_singlets.reset_index(drop=True)
 
 
@@ -44,10 +44,10 @@ def identify_troughs(passed_data, prominence, distance=10):
 
 def determine_possible_redshifts(passed_data, trough_indexes, doublet_number, quasar_redshift):
     """
-    Pass magnesium troughs to start with
-    :param: passed_data the spectrum dataset
-    :param: troughs the troughs that will be used to determine redshifts
-    :param: element this is the index of the type of doublet from the doublets dataframe,
+    Determines all possible redshifts for detected troughs.
+    :param passed_data: the spectrum dataset
+    :param trough_indexes: the troughs that will be used to determine redshifts
+    :param doublet_number: this is the index of the type of doublet from the doublets dataframe,
      so when trying to find MgII redshifts use 0, CIV redshifts use 3, etc.
     :param quasar_redshift: the redshift of the quasar, needed to stop adding when the redshift is greater than
      the quasar redshift
@@ -110,11 +110,17 @@ def match_confirmed_systems(passed_data, confirmed_redshift, doublet_number, tro
             # unpack to get the separate graph index (x-value) and observed wavelength
             blue_index = possible_troughs["index"].iloc[trough]
             trough_observed_wavelength = possible_troughs["Observed Wavelength"].iloc[trough]
-            # only look at troughs redder than the current blue one to save time
 
             # if the singlet is a match add it, and it's number, as a tuple
             if np.isclose(potential_match, trough_observed_wavelength, atol=1.5):
-                tagged_doublets.append((blue_index, searched_doublet))
+
+                # Add the element if it is a singlet or is the blue part of a doublet
+                # (since the list is ordered by ascending wavelength, index - 1 will be
+                # the red part of a doublet if we are checking a blue)
+                if (not prediction_singlets["Is Doublet"].iloc[searched_doublet] or
+                        (prediction_singlets["Doublet"].iloc[searched_doublet]
+                         != prediction_singlets["Doublet"].iloc[searched_doublet - 1])):
+                    tagged_doublets.append((blue_index, searched_doublet))
 
     return tagged_doublets
 
@@ -138,7 +144,7 @@ def match_doublets(passed_data, trough_indexes, doublet_number, already_found, z
     redshifts = determine_possible_redshifts(passed_data, trough_indexes, doublet_number, z)
 
     # remove redshifts less than 0.7
-    redshifts = [redshift for redshift in redshifts if redshift > 0.7]
+    # redshifts = [redshift for redshift in redshifts if redshift > 0.7]
 
     # removed already found redshifts
     already_found_keys = list(already_found)

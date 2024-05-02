@@ -2,9 +2,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from matplotlib.transforms import Bbox
+from matplotlib.backends.backend_pdf import PdfPages
 from scipy import signal
 import os
 import trough_identify
+
 
 """
 FIELDS ---------------------------------------------------------------------------------------------------------------
@@ -65,10 +67,10 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
     """
 
     matched_doublets = all_matched_doublets[doublet_number]
-    for matched_doublet in matched_doublets:
+    for current_redshift in matched_doublets:
 
-        main_doublet = matched_doublets[matched_doublet][0]
-        secondary_doublets = matched_doublets[matched_doublet][1]
+        main_doublet = matched_doublets[current_redshift][0]
+        secondary_doublets = matched_doublets[current_redshift][1]
 
         color = next(colors)[1]
 
@@ -79,7 +81,7 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
             data["Flux"].max(),
             color=color,
             linewidth=0.8,
-            label=str(np.round(matched_doublet, decimals=3)) + trough_identify.doublets["Doublet"].iloc[doublet_number]
+            label=str(np.round(current_redshift, decimals=3)) + trough_identify.doublets["Doublet"].iloc[doublet_number]
         )
 
         # plot red
@@ -93,7 +95,7 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
 
         # annotate
         ax.annotate(
-            str(np.round(matched_doublet, decimals=3))
+            str(np.round(current_redshift, decimals=3))
             + trough_identify.doublets["Doublet"].loc[doublet_number],
             xy=(
                 data["Observed Wavelength"].loc[main_doublet[0]],
@@ -128,23 +130,54 @@ def plot_systems(colors, ax, data, doublet_number, all_matched_doublets):
                 temp_offset += 5
                 temp_text = "--OR-- "
 
-            ax.annotate(
-                temp_text
-                + str(np.round(matched_doublet, decimals=3))
-                + trough_identify.prediction_singlets["Doublet"].loc[secondary[1]]
-                + " Predicted",
-                xy=(
-                    data["Observed Wavelength"].loc[secondary[0]],
-                    18
-                ),
-                xytext=(
-                    data["Observed Wavelength"].loc[secondary[0]]
-                    + 5,
-                    18 - temp_offset,
-                ),
-                rotation=270
-            )
-            annotation_bounding_boxes.append(temp_bounding_box)
+            # If doublet, plot red line and annotate
+            if trough_identify.prediction_singlets["Is Doublet"].iloc[secondary[1]] == "Doublet":
+                ax.vlines(
+                    trough_identify.prediction_singlets["Wavelength"].iloc[secondary[1] + 1] * (current_redshift + 1),
+                    0,
+                    data["Flux"].max(),
+                    color=color,
+                    linewidth=0.8
+                )
+
+                ax.annotate(
+                    temp_text
+                    + str(np.round(current_redshift, decimals=3))
+                    + trough_identify.prediction_singlets["Doublet"].loc[secondary[1]]
+                    + " Predicted",
+                    xy=(
+                        data["Observed Wavelength"].loc[secondary[0]],
+                        18
+                    ),
+                    xytext=(
+                        trough_identify.prediction_singlets["Wavelength"].iloc[secondary[1] + 1]
+                        * (current_redshift + 1)
+                        + 5,
+                        18 - temp_offset,
+                    ),
+                    rotation=270
+                )
+                annotation_bounding_boxes.append(temp_bounding_box)
+
+            # Else just annotate the singlet
+            else:
+                ax.annotate(
+                    temp_text
+                    + str(np.round(current_redshift, decimals=3))
+                    + trough_identify.prediction_singlets["Doublet"].iloc[secondary[1]]
+                    + " Predicted",
+                    xy=(
+                        data["Observed Wavelength"].iloc[secondary[0]],
+                        18
+                    ),
+                    xytext=(
+                        data["Observed Wavelength"].iloc[secondary[0]]
+                        + 5,
+                        18 - temp_offset,
+                    ),
+                    rotation=270
+                )
+                annotation_bounding_boxes.append(temp_bounding_box)
 
 
 def plot_quasar_system(ax, data, quasar_redshift):
@@ -198,9 +231,10 @@ def plot_quasar_system(ax, data, quasar_redshift):
 def plot_object():
     """
     Creates plot from text data file.
+    :return: the plot figure and axes, the detected systems, and the object identification
     """
     colors = pick_color()
-    data = pd.read_csv("106_14_41_51_14_20_50..txt", header=None, delim_whitespace=True)
+    data = pd.read_csv("108_11_03_26_31_41_15..txt", header=None, delim_whitespace=True)
     data.columns = ("Observed Wavelength", "Flux", "Flux Error")
     # get all redshifts
     all_redshifts = pd.read_csv("Object_Index.txt", header=None)
@@ -273,5 +307,53 @@ def plot_object():
     plt.legend()
     plt.show()
 
+    return fig, ax, all_matched_doublets, object_num, data
 
-plot_object()
+
+def save_results(fig, ax, all_matched_doublets, object_num, data):
+    """
+    Saves the results of the search and the plot as files
+    :param fig: the mpl figure
+    :param ax: the mpl axes
+    :param all_matched_doublets: the detected redshifts and corresponding singlets and doublets
+    :param object_num: the identification of the object that was searched
+    :return:
+    """
+
+    systems = []
+    # append redshifts for sorting
+    for doublet_number in all_matched_doublets:
+        if all_matched_doublets[doublet_number]:
+            matched_doublets = list(all_matched_doublets[doublet_number])
+            for matched_doublet in matched_doublets:
+                systems.append((doublet_number, matched_doublet))
+
+    # sort based on redshift
+    systems.sort(key=lambda x: x[1])
+    secondary_elements = []
+    for system in systems:
+        temp_secondary = []
+        for secondary in all_matched_doublets[system[0]][system[1]][1]:
+            temp_secondary.append(secondary[1])
+        secondary_elements.append(temp_secondary)
+
+    # write to file
+    with open(f"{object_num}_results.txt", "w") as file:
+        # write headers
+        file.write(f"Detected Systems for {object_num} \n\n")
+        file.write("Redshift                  Identified with         Positive Identifications\n")
+
+        # write systems
+        for i in range(len(systems)):
+            file.write(str(systems[i][1]) + "        " + trough_identify.doublets["Doublet"].iloc[systems[i][0]] +
+                       f"{'': <{24 - len(trough_identify.doublets['Doublet'].iloc[systems[i][0]])}}")
+            for j in range(len(secondary_elements[i])):
+                file.write(trough_identify.prediction_singlets["Doublet"].iloc[secondary_elements[i][j]] + "  ")
+
+            file.write("\n")
+
+    fig.savefig(f"{object_num}_plot.pdf", dpi=700)
+    number_of_panels = 5
+
+
+
