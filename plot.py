@@ -7,7 +7,6 @@ from scipy import signal
 import os
 import trough_identify
 
-
 """
 FIELDS ---------------------------------------------------------------------------------------------------------------
 """
@@ -354,6 +353,3 @@ def save_results(fig, ax, all_matched_doublets, object_num, data):
 
     fig.savefig(f"{object_num}_plot.pdf", dpi=700)
     number_of_panels = 5
-
-
-
